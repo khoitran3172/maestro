@@ -47,7 +47,7 @@ class GraderPipeline:
         deterministic_result = await self.deterministic.grade(task_input, task_output, workspace)
         if not deterministic_result.passed:
             # Short-circuit failure immediately to avoid expensive vision/text API calls!
-            print("    ❌ Deterministic checks failed. Short-circuiting LLM grading to save costs.")
+            print("    [FAIL] Deterministic checks failed. Short-circuiting LLM grading to save costs.")
             return deterministic_result
 
         # 3. Detect artifact types to route grading
@@ -64,15 +64,16 @@ class GraderPipeline:
 
         # Call vision grader if images are present
         if has_images:
-            print("    👁️  Visual output detected. Routing to Vision Grader...")
+            print("    [ROUTE] Visual output detected. Routing to Vision Grader...")
             vision_result = await self.vision_grader.grade(task_input, task_output)
             sub_results.append(vision_result)
 
         # Call text grader if source code/text is present
         if has_text:
-            print("    📝 Code/Text output detected. Routing to Text Grader...")
+            print("    [ROUTE] Code/Text output detected. Routing to Text Grader...")
             text_result = await self.text_grader.grade(task_input, task_output)
             sub_results.append(text_result)
 
         # 4. Consolidate results
         return CompositeGrader.aggregate(sub_results, fail_fast=True)
+

@@ -32,3 +32,8 @@ node_modules/
 
 # Logs
 *.log
+
+# Maestro Evaluation and Lessons
+.maestro_eval/
+MAESTRO_LESSONS.md
+

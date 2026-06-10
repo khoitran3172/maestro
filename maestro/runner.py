@@ -287,6 +287,11 @@ class PipelineRunner:
                         "Pipeline execution failed",
                         run_id=run_id,
                     )
+                    try:
+                        from maestro.learning import generate_lessons_learned
+                        generate_lessons_learned(self.store.db_path, run_id)
+                    except Exception as e:
+                        self.logger.error(f"Learning layer failure: {e}")
                     return False
 
                 self.state.status = "completed"
@@ -301,6 +306,11 @@ class PipelineRunner:
                     **self.cost_tracker.summary(),
                 )
                 self._print_summary()
+                try:
+                    from maestro.learning import generate_lessons_learned
+                    generate_lessons_learned(self.store.db_path, run_id)
+                except Exception as e:
+                    self.logger.error(f"Learning layer failure: {e}")
                 return True
 
             except BudgetExceededError as e:
@@ -310,7 +320,7 @@ class PipelineRunner:
                     self.cost_tracker.total_spent_usd,
                     self.cost_tracker.max_budget_usd,
                 )
-                print(f"\n🛑 {e}")
+                print(f"\n[ERROR] {e}")
                 print("Run `maestro resume` after increasing MAX_USD to continue.")
                 return False
 
@@ -318,7 +328,7 @@ class PipelineRunner:
                 self.state.status = "paused"
                 await self.store.update_run_status(run_id, "paused")
                 self.logger.warning("Pipeline interrupted by user (Ctrl+C)")
-                print("\n⏸️  Pipeline paused. Run `maestro resume` to continue.")
+                print("\n[PAUSED] Pipeline paused. Run `maestro resume` to continue.")
                 return False
 
     def _print_summary(self) -> None:
@@ -327,7 +337,7 @@ class PipelineRunner:
         total_time = (self.state.completed_at or time.time()) - self.state.started_at
 
         print("\n" + "=" * 60)
-        print(f"📊 MAESTRO PIPELINE SUMMARY")
+        print("MAESTRO PIPELINE SUMMARY")
         print("=" * 60)
         print(f"  Project:   {self.config.project_name}")
         print(f"  Run ID:    {self.state.run_id}")

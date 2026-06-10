@@ -47,13 +47,13 @@ async def resume_pipeline(workspace: Path, run_id: Optional[str] = None) -> None
         # Check if legacy state.json exists for one-time migration
         legacy_state = workspace / ".maestro" / "state.json"
         if not legacy_state.exists():
-            print("❌ No active runs found. Run `maestro run <config>` first.")
+            print("[ERROR] No active runs found. Run `maestro run <config>` first.")
             sys.exit(1)
 
     # Load config from .maestro/pipeline_config.json
     config_path = workspace / ".maestro" / "pipeline_config.json"
     if not config_path.exists():
-        print("❌ Pipeline config not found at .maestro/pipeline_config.json")
+        print("[ERROR] Pipeline config not found at .maestro/pipeline_config.json")
         sys.exit(1)
 
     config = PipelineConfig.from_file(config_path)
@@ -84,7 +84,7 @@ async def show_status(workspace: Path, run_id: Optional[str] = None) -> None:
     if not db_path.exists():
         legacy_state = workspace / ".maestro" / "state.json"
         if legacy_state.exists():
-            print("⚙️ Migrating legacy state.json to SQLite database...")
+            print("[MIGRATE] Migrating legacy state.json to SQLite database...")
             store = MaestroStore(db_path)
             from maestro.checkpoint import migrate_json_state
             async with store:
@@ -125,7 +125,7 @@ async def show_status(workspace: Path, run_id: Optional[str] = None) -> None:
         if tasks:
             print("\nTasks:")
             for t in tasks:
-                status_icon = "✅" if t["status"] == "done" else "❌" if t["status"] == "failed" else "⏳" if t["status"] == "running" else "⏸️"
+                status_icon = "[OK]" if t["status"] == "done" else "[FAIL]" if t["status"] == "failed" else "[RUNNING]" if t["status"] == "running" else "[PAUSED]"
                 cost_str = f" (${t['estimated_cost']:.4f})" if t["estimated_cost"] else ""
                 err_str = f" - Error: {t['error_message']}" if t["error_message"] else ""
                 print(f"  Phase {t['phase']}: {status_icon} {t['specialist']} - {t['status'].upper()}{cost_str}{err_str}")
@@ -161,6 +161,18 @@ def main() -> None:
                               help="Workspace directory containing .maestro/")
     status_parser.add_argument("--run-id", type=str, help="Optional specific run ID")
 
+    # Dashboard command
+    dashboard_parser = subparsers.add_parser("dashboard", help="Start the observability web dashboard")
+    dashboard_parser.add_argument("--workspace", type=Path, default=Path("."),
+                                  help="Workspace directory containing .maestro/")
+    dashboard_parser.add_argument("--port", type=int, default=8000,
+                                  help="Port to run dashboard server on (default: 8000)")
+
+    # Eval command
+    eval_parser = subparsers.add_parser("eval", help="Run automated evaluation benchmarks")
+    eval_parser.add_argument("--workspace", type=Path, default=Path("."),
+                             help="Workspace directory for benchmarks (default: current dir)")
+
     args = parser.parse_args()
 
     if args.command == "run":
@@ -169,6 +181,23 @@ def main() -> None:
         asyncio.run(resume_pipeline(args.workspace, args.run_id))
     elif args.command == "status":
         asyncio.run(show_status(args.workspace, args.run_id))
+    elif args.command == "dashboard":
+        from maestro.dashboard.server import start_server
+        workspace = args.workspace.resolve()
+        port = args.port
+        print(f"[START] Starting Maestro Observability Dashboard on http://localhost:{port}")
+        print(f"[DIR] Workspace: {workspace}")
+        print("Press Ctrl+C to stop the server.")
+        server = start_server(workspace, port)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print("\n[STOP] Dashboard server stopped.")
+            sys.exit(0)
+    elif args.command == "eval":
+        from maestro.eval.harness import run_all_benchmarks
+        workspace = args.workspace.resolve()
+        asyncio.run(run_all_benchmarks(workspace))
     else:
         parser.print_help()
         sys.exit(1)
@@ -176,3 +205,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

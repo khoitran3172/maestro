@@ -59,7 +59,7 @@ class SandboxContainer:
                     command=" ".join(command)
                 )
             # Graceful fallback to host execution
-            print("⚠️  Docker not available. Falling back to host subprocess execution.")
+            print("[WARNING] Docker not available. Falling back to host subprocess execution.")
             return await self._run_host_subprocess(command, cwd=cwd, env=env, timeout_sec=timeout_sec, input_text=input_text)
 
         # Build Docker command
@@ -126,7 +126,7 @@ class SandboxContainer:
 
             # Check if container run failed due to Docker infrastructure issues
             if process.returncode == 125 or "docker: error during connect" in stderr:
-                print("⚠️  Docker run failed. Falling back to host subprocess execution.")
+                print("[WARNING] Docker run failed. Falling back to host subprocess execution.")
                 return await self._run_host_subprocess(command, cwd=cwd, env=env, timeout_sec=timeout_sec, input_text=input_text)
 
             status = TaskStatus.SUCCESS if process.returncode == 0 else TaskStatus.ERROR
@@ -145,7 +145,7 @@ class SandboxContainer:
 
         except Exception as e:
             # Fallback on generic failure
-            print(f"⚠️  Docker initialization failed ({e}). Falling back to host subprocess execution.")
+            print(f"[WARNING] Docker initialization failed ({e}). Falling back to host subprocess execution.")
             return await self._run_host_subprocess(command, cwd=cwd, env=env, timeout_sec=timeout_sec, input_text=input_text)
 
     async def _run_host_subprocess(

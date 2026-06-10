@@ -54,7 +54,7 @@ class DAGScheduler:
                 dep_task = await runner.store.get_task(dep)
                 if not dep_task or dep_task["status"] != "done":
                     # Mark current task as failed because parent failed (cascade failure)
-                    print(f"    ⚠️  Task '{node_id}' blocked because dependency '{dep}' failed.")
+                    print(f"    [BLOCKED] Task '{node_id}' blocked because dependency '{dep}' failed.")
                     await runner.store.update_task_status(
                         node_id, "failed",
                         error_message=f"Dependency '{dep}' failed or was not completed."
@@ -109,7 +109,7 @@ class DAGScheduler:
         # Validate prompt safety
         prompt_text = node.prompt or node.task_id
         if not is_safe_prompt(prompt_text):
-            print(f"  🛑 Safety alert: task '{task_id}' prompt flagged as unsafe!")
+            print(f"  [SAFETY ALERT] task '{task_id}' prompt flagged as unsafe!")
             await runner._transition_task(
                 task_id, "failed",
                 error_message="Prompt injection attempt detected."
@@ -131,7 +131,7 @@ class DAGScheduler:
             try:
                 worktree_cwd = await branch_manager.create_isolated_worktree(task_id, node.specialist)
             except GitError as e:
-                print(f"  ⚠️  Failed to create isolated Git worktree: {e}")
+                print(f"  [WARNING] Failed to create isolated Git worktree: {e}")
                 worktree_cwd = None
 
         feedback: Optional[str] = None
@@ -149,11 +149,11 @@ class DAGScheduler:
                         runner.cost_tracker.total_spent_usd,
                         runner.cost_tracker.max_budget_usd,
                     )
-                    print(f"⚠️  Budget at {runner.cost_tracker.utilization_pct:.0f}% "
+                    print(f"[BUDGET WARNING] Budget at {runner.cost_tracker.utilization_pct:.0f}% "
                           f"(${runner.cost_tracker.total_spent_usd:.2f} / "
                           f"${runner.cost_tracker.max_budget_usd:.2f})")
 
-                print(f"  🔄 Task {task_id} [{node.specialist}] attempt {attempt + 1}/{node.max_retries + 1}...")
+                print(f"  [RUN] Task {task_id} [{node.specialist}] attempt {attempt + 1}/{node.max_retries + 1}...")
 
                 # Build TaskInput
                 task_input = TaskInput(
@@ -245,14 +245,14 @@ class DAGScheduler:
                             "attempt": attempt + 1,
                         }
 
-                    print(f"  ✅ Task {task_id} completed ({result.duration_sec:.1f}s, ${cost_entry.estimated_cost_usd:.4f})")
+                    print(f"  [OK] Task {task_id} completed ({result.duration_sec:.1f}s, ${cost_entry.estimated_cost_usd:.4f})")
                     execution_success = True
                     break
 
                 # Grade failed
-                print(f"  ❌ Task {task_id} failed quality checks: {grade_result.feedback}")
+                print(f"  [FAIL] Task {task_id} failed quality checks: {grade_result.feedback}")
 
-                if runner.retry_policy.should_retry(result, attempt):
+                if runner.retry_policy.should_retry(result, attempt) or (not grade_result.passed and attempt < node.max_retries):
                     delay = runner.retry_policy.delay_sec(attempt)
                     feedback = FeedbackBuilder.build_feedback(grade_result, result)
                     feedback_artifacts = list(result.artifacts)
@@ -287,7 +287,7 @@ class DAGScheduler:
                         task_id, "kicked_back",
                         error_message=grade_result.feedback,
                     )
-                    print(f"  ⏳ Retrying in {delay:.0f}s...")
+                    print(f"  [RETRY] Retrying in {delay:.0f}s...")
                     await asyncio.sleep(delay)
                     # Re-transition to queued and running
                     await runner._transition_task(task_id, "queued")
