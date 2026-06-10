@@ -1,0 +1,36 @@
+[project]
+name = "maestro"
+version = "0.1.0"
+description = "AI Orchestrator — coordinates multiple specialist AI agents through a graded pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+]
+db = [
+    "aiosqlite>=0.19",
+]
+dashboard = [
+    # Added in Sprint 8
+]
+
+[project.scripts]
+maestro = "maestro.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["maestro*"]
